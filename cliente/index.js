@@ -6,5 +6,5 @@ dotenv.config();
 const port = process.env.PORT_EXPRESS;
 
 app.listen(port, () => {
-    console.log(`Servidor iniciado en el puerto ${PORT}`) // esto es un template string que va a mostrar el puerto en el que se inicio el servidor
+    console.log(`Servidor iniciado en el puerto ${port}`) // esto es un template string que va a mostrar el puerto en el que se inicio el servidor
 });
