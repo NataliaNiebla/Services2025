@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import sequelize from "../config/bd";
+import sequelize from "../config/bd.js";
 
 const Client = sequelize.define("client", {
     id : {
