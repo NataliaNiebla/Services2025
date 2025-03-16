@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { create } from "express-handlebars";
 import hbs from "nodemailer-express-handlebars";
 import path from "path";
 import dotenv from "dotenv";
@@ -13,13 +14,13 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-const handlebarOptions = {
-    viewEngine: {
-        extname: ".hbs", // Extensión de las plantillas
-        partialsDir: path.resolve("./views"), // Ruta a las plantillas parciales
+// Configurar Handlebars
+const hbsOptions = {
+    viewEngine: create({
+        extname: ".hbs",
         defaultLayout: false,
-    },
-    viewPath: path.resolve("./views"), // Ruta a las vistas
+    }),
+    viewPath: path.resolve("../email/src/views/email"),
     extName: ".hbs",
 };
 

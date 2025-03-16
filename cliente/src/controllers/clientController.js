@@ -1,146 +1,113 @@
-import Client from '../models/clientModel.js';
+import Client from "../models/clientModel.js";
+import { EventEmitter } from 'events';
+import axios from 'axios';
+
+
+// EVENT EMITTER PARA LA CREACION AUTOMATICA DE UN NUEVO USUARIO
+const eventEmitter = new EventEmitter();
+
 
 export const getClients = async (req, res) => {
     try {
-        const clients = await Client.findAll();
-        res.status(200).json(client);
+        const clients = await Client.findAll({ where: { status: true } });
+        res.status(200).json(clients);
     } catch (error) {
-        console.error('Error al listar clientes', error);
-        res.status(500).send({
-            message:'Error al obtener los clientes'
-        });
+        console.error("Error al listar Clientes:", error);
+        res.status(500).json({ message: "Error al obtener los clientes" });
     }
 };
 
-export const createClient = async (req, res) => {
-    const { name, lastname, email, phone, address, birthDate } = req.body;
-    if (!name || !lastname || !email || !phone || !address || !birthDate) {
-        return res.status(400).json({
-            message: 'Todos los campos son obligatorios'
-        });
-    }
-    const newRegex = /^[A-Za-z\s]+$/;
-    if (!newRegex.test(name) || !newRegex.test(lastname)) {
-        return res.status(400).json({
-            message: 'El nombre y apellido no deben contener números'
-        });
-    }
-    const existingClientEmail = await Client.findOne({ where: { email } });
-    if (existingClientEmail) {
-        return res.status(400).json({
-            message: 'El email ya está registrado'
-        });
-    }
-    const existingClientPhone = await Client.findOne({ where: { phone } });
-    if (existingClientPhone) {
-        return res.status(400).json({
-            message: 'El teléfono ya está registrado'
-        });
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\s@]+\.[^\a@]+$/;
-    if (!emailRegex.test(email)) {
-        return res.status(400).json({
-            message: 'El email no es válido'
-        });
-    }
-    if (phone.length !== 10) {
-        return res.status(400).json({
-            message: 'El teléfono debe tener 10 dígitos'
-        });
-    }
-    if (birthDate.length !== 10) {
-        return res.status(400).json({
-            message: 'La fecha de nacimiento debe tener el formato dd/mm/aaaa'
-        });
-    }
-    const birthDateObj = new Date(birthDate.split('/').reverse().join('/'));
-    const today = new Date();
-    const ageDiff = today.getFullYear() - birthDateObj.getFullYear();
-    const monthDiff = today.getMonth() - birthDateObj.getMonth();
-    const dayDiff = today.getDate() - birthDateObj.getDate();
-
-    if (ageDiff < 18 || (ageDiff === 18 && (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)))) {
-        return res.status(400).json({
-            message: 'El cliente debe ser mayor de edad'
-        });
-    }
+export const getClientById = async (req, res) => {
     try {
-        const newClient = await Client.create({
-            name,
-            lastname,
-            email,
-            phone,
-            address,
-            birthDate: birthDateObj,
-            status: true,
-            creationDate: new Date()
-        });
-        cosole.log (newClient);
-        res.status(201).json(newClient);
-    } catch (error) {
-        console.error('Error al crear cliente', error);
-        res.status(500).send({
-            message: 'Error al crear el cliente'
-        });
-    }
-};
-
-export const updateClient = async (req, res) => {
-    const { id } = req.params;
-    const {address, phone} = req.body;
-
-    try {
+        const { id } = req.params;
         const client = await Client.findByPk(id);
         if (!client) {
-            return res.status(404).json({
-                message: 'Cliente no encontrado'
-            });
+            return res.status(404).json({ message: "Cliente no encontrado" });
         }
-        if (phone.length !== 10) {
-            return res.status(400).json({
-                message: 'El teléfono debe tener 10 dígitos'
-            });
-        }
-        const existingPhone = await Client.findOne({ where: { phone } });
-        if (existingPhone) {
-            return res.status(400).json({
-                message: 'El teléfono ya está registrado'
-            });
-        }
-        await client.update({
-            phone: phone || client.phone,
-            address: address || client.address,
+        res.status(200).json(client);
+    } catch (error) {
+        console.error("Error al obtener cliente:", error);
+        res.status(500).json({ message: "Error al obtener el cliente" });
+    }
+};
+
+//CREAR UN CLIENTE CON LA INFO DE TODA LA TABLA
+
+export const createClient = async (req, res) => {
+    try {
+        const { name, lastName, email, phone, birthDate, address } = req.body;
+        const newClient = await Client.create({
+            name,
+            lastName,
+            email,
+            phone,
+            birthDate,
+            address,
+            status: true, // Nuevo cliente siempre inicia activo
         });
 
-        return res.status(200).json({message: 'Cliente actualizado correctamente', data: client});
+        // Emitimos el evento cuando se crea un cliente
+        eventEmitter.emit('clientCreated', newClient);
+
+        res.status(201).json(newClient);
+    } catch (error) {
+        console.error("Error al crear Cliente:", error);
+        res.status(500).json({ message: "Error al crear el cliente" });
     }
-    catch (error) {
-        console.error('Error al actualizar cliente', error);
-        res.status(500).json({
-            message: 'Error al actualizar el cliente'
+};
+
+// Escuchar el evento para crear un usuario automáticamente
+eventEmitter.on('clientCreated', async (client) => {
+    try {
+        // const randomUsername = `user${Math.floor(Math.random() * 10000)}`;
+        const randomPassword = Math.random().toString(36).slice(-8); // Genera una contraseña aleatoria de 8 caracteres
+
+        await axios.post('http://localhost:3003/api/users/newuser', {
+            username: client.email,
+            password: randomPassword,
+            phone: client.phone,
         });
+
+        console.log(`Usuario creado automáticamente para el cliente ${client.name} ${client.lastName}`);
+    } catch (error) {
+        console.error('Error al crear usuario automáticamente:', error);
+    }
+});
+
+
+export const updateClient = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, lastName, email, phone, birthDate, address } = req.body;
+
+        const client = await Client.findByPk(id);
+        if (!client) {
+            return res.status(404).json({ message: "Cliente no encontrado" });
+        }
+
+        await client.update({ name, lastName, email, phone, birthDate, address });
+
+        res.status(200).json({ message: "Cliente actualizado correctamente" });
+    } catch (error) {
+        console.error("Error al actualizar Cliente:", error);
+        res.status(500).json({ message: "Error al actualizar el cliente" });
     }
 };
 
 export const deleteClient = async (req, res) => {
-    const { id } = req.params;
-
     try {
+        const { id } = req.params;
         const client = await Client.findByPk(id);
+
         if (!client) {
-            return res.status(404).json({
-                message: 'Cliente no encontrado'
-            });
+            return res.status(404).json({ message: "Cliente no encontrado" });
         }
-        await client.update({
-            status: false
-        });
-        return res.status(200).json({message: 'Cliente eliminado correctamente', data: client});
-    } 
-    catch (error) {
-        console.error('Error al eliminar cliente', error);
-        res.status(500).json({
-            message: 'Error al eliminar el cliente'
-        });
+
+        await client.update({ status: false });
+
+        res.status(200).json({ message: "Cliente dado de baja correctamente" });
+    } catch (error) {
+        console.error("Error al dar de baja Cliente:", error);
+        res.status(500).json({ message: "Error al dar de baja el cliente" });
     }
 };
