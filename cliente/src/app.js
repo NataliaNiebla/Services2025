@@ -1,6 +1,6 @@
 import bodyParser from "body-parser";
 import express from "express";
-import clientRoutes from "../routes/clientRoutes";
+import clientRoutes from "./routes/clientRoutes.js";
 import swaggerSpec from "./api-docs.js";
 import swaggerUi from "swagger-ui-express";
 
