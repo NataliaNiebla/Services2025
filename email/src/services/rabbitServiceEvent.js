@@ -4,7 +4,7 @@ import transporter from '../config/emailConfig.js';
 
 dotenv.config();
 
-const RABBITMQ_URL = process.env.RABBIT_HOST;
+const RABBITMQ_URL = process.env.RABBITMQ_HOST;
 
 async function sendEmail(user) {
     const mailOptions = {
