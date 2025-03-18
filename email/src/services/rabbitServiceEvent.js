@@ -32,6 +32,75 @@ async function sendEmail(user) {
     }
 }
 
+export async function clientInfoEvents() {
+    try {
+        const connection = await amqp.connect(RABBITMQ_URL);
+        const channel = await connection.createChannel();
+
+        const exchange = 'client_event';
+        const queue = 'client_info_queue';
+        const routingKey = 'client.info';
+
+        await channel.assertExchange(exchange, 'topic', { durable: true });
+        await channel.assertQueue(queue, { durable: true });
+        await channel.bindQueue(queue, exchange, routingKey);
+
+        console.log(`Esperando mensajes en ${queue}`);
+
+        channel.consume(queue, async (msg) => {
+            if (msg !== null) {
+                const data = JSON.parse(msg.content.toString());
+                console.log("Cliente info recibida:", data);
+
+                await sendClientInfoEmail(data);
+                channel.ack(msg);
+            }
+        });
+
+        connection.on('close', () => {
+            console.error('Conexión cerrada, reintentando en 5s...');
+            setTimeout(clientInfoEvents, 5000);
+        });
+
+    } catch (error) {
+        console.log('Error en clientInfoEvents:', error.message);
+        setTimeout(clientInfoEvents, 5000);
+    }
+}
+
+async function sendClientInfoEmail(data) {
+    const { to, client } = data;
+
+    if (!client) {
+        console.error('Error: client data is undefined');
+        return;
+    }
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: to,
+        subject: `Información del Cliente: ${client.name} ${client.lastName}`,
+        html: `
+            <h1>Información del Cliente</h1>
+            <ul>
+                <li><strong>Nombre:</strong> ${client.name} ${client.lastName}</li>
+                <li><strong>Email:</strong> ${client.email}</li>
+                <li><strong>Teléfono:</strong> ${client.phone}</li>
+                <li><strong>Dirección:</strong> ${client.address}</li>
+                <li><strong>Fecha de Nacimiento:</strong> ${client.birthDate}</li>
+            </ul>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('Correo con info de cliente enviado con éxito');
+    } catch (error) {
+        console.error('Error enviando email de cliente:', error);
+    }
+}
+
+
 export async function userEvents() {
     try {
         const connection = await amqp.connect(RABBITMQ_URL);
